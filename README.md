@@ -1,7 +1,6 @@
-# Social Data Science Semester - Group Assignment
+# Social Data Science Semester 2020 - Group Assignment
 ## From informal to formal: Using Twitter Sentiments to predict stock prices
 ### Philipp, Merle, Kevin
-### 15.11.2020
 In this project we have chosen to predict stock development based on a Twitter sentiment analysis which is sourced by COVID-19 related keywords and relate it to COVID-19 infections and deaths over the same timeframe.
 
 Our problem statement was:
