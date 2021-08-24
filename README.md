@@ -4,11 +4,10 @@
     <title>SDS CBS 2020 - Group Assignment</title>
     </head>
     <body>
-     <h1>Philipp, Merle, Kevin</h1>
+     <h1>From informal to formal: Using Twitter Sentiments to predict stock prices</h1>
+     <h2>Philipp, Merle, Kevin</h2>
      <p>15.11.2020</p>
-     From informal to formal: Using Twitter Sentiments to predict stock prices
-     
-     In this project we have chosen to predict stock development based on a Twitter sentiment analysis which is sourced by COVID-19 related keywords and relate it to COVID-19 infections and deaths over the same timeframe.
+     <p>In this project we have chosen to predict stock development based on a Twitter sentiment analysis which is sourced by COVID-19 related keywords and relate it to COVID-19 infections and deaths over the same timeframe.
 
 Our problem statement was:
 
@@ -22,7 +21,7 @@ Twitter data: https://zenodo.org/record/3723940#.X6xa7y2X-34
 
 Covid data: https://github.com/nytimes/covid-19-data
 
-Stock data: Yahoo Finance
+       Stock data: Yahoo Finance</p>
      </body>
 </html>
 
