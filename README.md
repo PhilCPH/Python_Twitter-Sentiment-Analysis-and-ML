@@ -1,13 +1,8 @@
-<html>
-  <head>
-    <meta charset="utf-8">
-    </head>
-    <body>
-     <h1>Social Data Science Semester - Group Assignment</h1>
-      <h2>From informal to formal: Using Twitter Sentiments to predict stock prices</h2>
-     <p>Philipp, Merle, Kevin</p>
-     <p>15.11.2020</p>
-     <p>In this project we have chosen to predict stock development based on a Twitter sentiment analysis which is sourced by COVID-19 related keywords and relate it to COVID-19 infections and deaths over the same timeframe.
+# Social Data Science Semester - Group Assignment
+## From informal to formal: Using Twitter Sentiments to predict stock prices
+### Philipp, Merle, Kevin
+### 15.11.2020
+In this project we have chosen to predict stock development based on a Twitter sentiment analysis which is sourced by COVID-19 related keywords and relate it to COVID-19 infections and deaths over the same timeframe.
 
 Our problem statement was:
 
@@ -21,10 +16,4 @@ Twitter data: https://zenodo.org/record/3723940#.X6xa7y2X-34
 
 Covid data: https://github.com/nytimes/covid-19-data
 
-       Stock data: Yahoo Finance</p>
-     </body>
-</html>
-
-
-# Twitter-Sentiment-Analysis-and-ML
-A sentiment Analysis about Corona on Twitter with Machine Learning Predictions for S&amp;P500 prices
+Stock data: Yahoo Finance
