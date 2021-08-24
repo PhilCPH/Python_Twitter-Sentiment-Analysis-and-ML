@@ -1,12 +1,1244 @@
-<html>
-  <head>
-    <meta charset="utf-8">
-    <title>SDS CBS 2020 - Group Assignment</title>
-    </head>
-    <body>
-     <h1>Philipp, Merle, Kevin</h1>
-     <p>15.11.2020</p>
-     Twitter Sentiment Analysis
-     For our project, we chose to...
-     </body>
-</html>
+ # Install Yfinance to access Yahoo Finance data
+  ! pip install yfinance > /dev/null 2>&1
+  ! mkdir hist
+
+  # Load packages
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pandas as pd
+import yfinance as yf
+import os, contextlib
+import shutil
+from sklearn.decomposition import PCA
+
+# Import symbols of all S&P 500 companies
+
+payload=pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+first_table = payload[0]
+second_table = payload[1]
+
+sandp500 = first_table
+sandp500.head()
+
+# Create a list of symbols of S&P 500 companies
+
+symbols = list(sandp500["Symbol"])
+
+[*********************100%***********************]  505 of 505 completed
+
+3 Failed downloads:
+- VNT: No data found for this date range, symbol may be delisted
+- BRK.B: No data found, symbol may be delisted
+- BF.B: No data found for this date range, symbol may be delisted
+
+stock_prices.head()
+
+stock_prices.info()
+
+stock_prices.describe()
+
+# There are 1255 missing values in total.
+# This might be due to companies being listed just within the last year and not being traded before that date.
+
+print(stock_prices.isna().sum().sum())
+
+# We figure out which companies have nan values:
+print(stock_prices.columns[stock_prices.isna().any()].tolist())
+
+# Since it's only 7 companies, we drop them to avoid any issues resulting from nan values as the small number is not crucial for our analysis
+
+stock_prices.drop(['BF.B', 'BRK.B', 'CARR', 'LUMN', 'OTIS', 'VIAC', 'VNT'], axis=1, inplace=True)
+
+# We set the index to lowercase
+stock_prices.index.name = 'date'
+
+stock_prices
+stock_prices.info()
+stock_prices.describe()
+
+# A line chart can give us a first impression of the development.
+# However, due to the different scales of the stock prices it doesn't give much insights in the price range from 0 to circa 700
+
+stock_prices.plot.line(legend=False)
+
+# To get an intuition of the overall development, we create the average.
+# Note that the average is not equal to the actual S&P 500 index since the latter one assigns weights to each company.
+# Since we are interested in the individual stock prices and just want to get a first impression of the development we do not include the index here.
+
+stock_prices['average'] = stock_prices.mean(axis=1)
+stock_prices['average'].plot.line()
+
+# The df is named 'q1' for simplicity even though April is included as well
+stock_prices_q1 = stock_prices.loc['2020-01-01':'2020-04-30']
+
+##Cluster analysis of stock data
+
+# Calculate the returns as the differences in stock prices
+stock_returns = stock_prices.apply(np.log).diff(1)
+
+# Plot the returns development
+stock_returns.plot(legend=0, figsize=(10,6), grid=True, title='Daily Returns of S&P500 stocks')
+plt.tight_layout()
+
+stock_returns.describe()
+
+# Create empty dataframe
+stocks = pd.DataFrame(data=None, columns=['company', 'sector', 'industry'])
+stocks['company']=stock_prices_q1.columns
+stocks.head()
+
+# Insert sector
+
+for i in range(len(stocks)):
+  for j in range(len(sandp500['Symbol'])):
+    if stocks['company'][i] == sandp500['Symbol'][j]:
+      stocks['sector'][i] = sandp500['GICS Sector'][j]
+    else: continue
+
+# Insert industry
+
+for i in range(len(stocks)):
+  for j in range(len(sandp500['Symbol'])):
+    if stocks['company'][i] == sandp500['Symbol'][j]:
+      stocks['industry'][i] = sandp500['GICS Sub-Industry'][j]
+    else: continue
+
+    # Insert return over the time period of interest
+    # Here, end of April is used to give a more holistic overview of the stock development including the first recovery phase
+    stocks['return'] = [(stock_prices_q1[i]['2020-04-30']/stock_prices_q1[i]['2020-01-02'] - 1) for i in stocks['company']]
+
+    # FYI: Which stocks closed higher than at the beginning of the period?
+    print(len(stocks[stocks['return'] > 0]))
+    stocks[stocks['return'] > 0]
+
+#We check how the different sectors and industries developed on average:
+
+sector_return = stocks.groupby('sector').mean()
+sector_return.plot.bar(figsize=(20,5))
+plt.title('Sector returns from January to end of April 2020')
+plt.savefig('sectors.png', bbox_inches='tight')
+
+industry_return = stocks.groupby('industry').mean()
+industry_return.plot.bar(figsize=(20,5))
+plt.title('Industry returns from January to end of April 2020')
+plt.savefig('industries.png', bbox_inches='tight')
+
+#Insert column "return_class" to classify the different stocks into winners and losers of Q1:
+
+stocks['return_class'] = 'tbd'
+for i in range(len(stocks)):
+  if stocks['return'][i] > 0:
+    stocks['return_class'][i] = 'positive'
+  elif stocks['return'][i] < 0:
+    stocks['return_class'][i] = 'negative'
+  else: stocks['return_class'][i] = 'neutral'
+
+stocks.head()
+
+stocks['return_class'].value_counts()
+
+# Define the companies we retrieve fundamentals for according to the selection made above
+filter_list = ['BF.B', 'BRK.B', 'CARR', 'LUMN', 'OTIS', 'VIAC', 'VNT']
+symbols_filtered = [x for x in symbols if x not in filter_list]
+len(symbols_filtered)
+
+# Define which of the fundamental to keep
+aapl = yf.Ticker("AAPL")
+all = list(aapl.info.keys())
+to_keep = ['beta', 'dividendYield', 'enterpriseToEbitda', 'enterpriseToRevenue', 'forwardEps', 'trailingEps', 'forwardPE', 'trailingPE', 'fullTimeEmployees', 'payoutRatio', 'priceToBook', 'profitMargins']
+to_drop = [field for field in all if field not in to_keep]
+
+# Import our saved fundamental data
+
+url = "https://raw.githubusercontent.com/PhilMaroEn/Twitter-Sentiment-Analysis-and-ML/a69f751121ec6ad4351ab3672ccb4cd958be7c2c/stock_fundamentals_2020-11-20.csv"
+
+combined_stats = pd.read_csv(url)
+
+# Transpose the dataframe to align with stock data
+combined_stats = combined_stats.transpose()
+
+# Set column names and drop the respective row in the df
+combined_stats.columns = combined_stats.iloc[0]
+combined_stats = combined_stats.drop('Unnamed: 0')
+combined_stats.index.names = ['company']
+
+combined_stats
+
+# Merge dataframes
+stock_stats = stocks.merge(combined_stats, left_on='company', right_index=True, how='inner')
+stock_stats
+
+# Check for NaN values
+print(stock_stats.isna().sum().sum())
+
+# Drop rows with NaN values since PCA cannot deal with them and extrapolating affects the result
+stock_stats_full = stock_stats.dropna()
+
+# Check how big the samle is we have left
+len(stock_stats_full)
+
+# Select original data accoringly
+filtered = stock_stats_full['company']
+stock_stats_filtered = stock_stats[stock_stats.company.isin(map(str, filtered))]
+len(stock_stats_filtered)
+
+# scale all relevant variables into a new matrix
+from sklearn.preprocessing import StandardScaler
+stock_stats_scaled = StandardScaler().fit_transform(stock_stats_full.loc[:,'fullTimeEmployees':'priceToBook'])
+
+#PCA
+
+# Check scree plot to see if there's an optimal amount of principal components
+pca = PCA().fit(stock_stats_scaled)
+plt.figure(figsize=(10, 8))
+plt.plot(np.cumsum(pca.explained_variance_ratio_))
+plt.xlabel('number of components')
+plt.ylabel('cumulative explained variance')
+plt.show()
+plt.savefig('PCA scree plot.png', bbox_inches='tight')
+
+#There doesn't seem to be an obvious cut-off value for the number of components.
+#Thus, we try the analysis with 2 and 11 components to check whether the return (positive/negative)
+#or sector can be extracted based on the given data.
+
+# PCA with 2 components
+pca = PCA(n_components=2)
+
+pca_stocks = pca.fit_transform(stock_stats_scaled)
+pca_stocks.shape
+
+sns_plot = sns.scatterplot(pca_stocks[:,0], pca_stocks[:,1], hue = stock_stats_filtered['return_class'])
+figure = sns_plot.get_figure()
+figure.savefig('PCA with 2 components')
+
+len(stock_stats.sector.unique())
+
+# PCA with 11 components
+pca = PCA(n_components=11)
+
+pca_stocks = pca.fit_transform(stock_stats_scaled)
+pca_stocks.shape
+
+sns_plot = sns.scatterplot(pca_stocks[:,0], pca_stocks[:,1], hue = stock_stats_filtered['sector'])
+figure = sns_plot.get_figure()
+figure.savefig('PCA with 11 components')
+
+# UMAP
+
+import umap
+reducer = umap.UMAP()
+
+# UMAP with 2 components
+
+umap_stocks = reducer.fit_transform(stock_stats_scaled)
+umap_stocks.shape
+
+sns_plot = sns.scatterplot(umap_stocks[:,0], umap_stocks[:,1], hue = stock_stats_filtered['return_class'])
+figure = sns_plot.get_figure()
+figure.savefig('UMAP with 2 components')
+
+# UMAP with 11 components
+reducer = umap.UMAP(n_components=11)
+umap_stocks = reducer.fit_transform(stock_stats_scaled)
+umap_stocks.shape
+
+sns_plot = sns.scatterplot(umap_stocks[:,0], umap_stocks[:,1], hue = stock_stats_filtered['sector'])
+figure = sns_plot.get_figure()
+figure.savefig('UMAP with 11 components')
+
+# KMeans
+
+from sklearn.cluster import KMeans
+
+# Define best k using elbow method
+wcss = []
+for i in range(1,21):
+  kmeans_sc = KMeans(n_clusters = i, init = 'k-means++')
+  kmeans_sc.fit(stock_stats_scaled)
+  wcss.append(kmeans_sc.inertia_)
+
+  # Plot elbow chart
+plt.figure(figsize=(10,8))
+plt.plot( range(1,21), wcss, marker= 'o', linestyle = '--')
+plt.title('K-Means with scaled data')
+plt.xlabel('Number of Clusters')
+plt.ylabel('WCSS (inertia)')
+plt.savefig('KMeans elbow method.png', bbox_inches='tight')
+
+# KMeans with 10 clusters
+clusterer = KMeans(n_clusters=10)
+clusterer.fit(stock_stats_scaled)
+
+sns_plot = sns.scatterplot(umap_stocks[:,0], umap_stocks[:,1], hue = clusterer.labels_ )
+figure = sns_plot.get_figure()
+figure.savefig('KMeans with 10 clusters')
+
+pd.crosstab(clusterer.labels_, stock_stats_filtered['return_class'])
+
+pd.crosstab(clusterer.labels_, stock_stats_filtered['sector'])
+
+# Import Twitter data
+
+!pip install -U -q PyDrive
+from pydrive.auth import GoogleAuth
+from pydrive.drive import GoogleDrive
+from google.colab import auth
+from oauth2client.client import GoogleCredentials
+
+# Authenticate and create the PyDrive client.
+auth.authenticate_user()
+gauth = GoogleAuth()
+gauth.credentials = GoogleCredentials.get_application_default()
+drive = GoogleDrive(gauth)
+
+import pandas as pd
+
+# Load Twitter-data - 100k
+id = "1IrP7KwTiSij7FVvY_2PnYKRjVHowpXgn"
+
+downloaded = drive.CreateFile({'id':id})
+downloaded.GetContentFile('tweets_full_sample_100k.csv')
+tweets = pd.read_csv('tweets_full_sample_100k.csv')
+
+tweets.shape
+
+# Cleaning Twitter data
+
+# Explore data set
+tweets.head()
+
+# Subset data to for us relevant columns
+tweets_clean = tweets[['id','created_at','lang','user_screen_name','text', 'user_followers_count']]
+
+# Drop dublictates
+tweets_clean = tweets_clean.drop_duplicates()
+
+# Check for any missing values
+tweets_clean.isnull().sum()
+
+tweets_clean.shape
+
+# Only keep English tweets
+tweets_clean = tweets_clean[tweets_clean['lang'] == 'en']
+
+# Drop language column afterwards
+tweets_clean = tweets_clean.drop('lang', axis=1)
+
+# Convert created_at to date
+tweets_clean = tweets_clean.rename(columns={'created_at':'date'})
+tweets_clean['date'] = pd.to_datetime(tweets_clean['date'])
+
+# Only keep day
+tweets_clean['date'] = tweets_clean['date'].dt.date
+
+# Check again time frame
+tweets_clean.sort_values(by='date').head(-10)
+
+tweets_clean.date.unique()
+
+# Text Preprocessing
+
+# Install tweet-preprocessor
+!pip install tweet-preprocessor
+
+# Import package for pre-processing tweets
+import preprocessor as p
+
+# Remove URLs, emojis, mentions and reserved words
+p.set_options(p.OPT.URL, p.OPT.EMOJI, p.OPT.MENTION, p.OPT.RESERVED, p.OPT.SMILEY, p.OPT.HASHTAG)
+tweets_clean['processed'] = [p.clean(text).lower() for text in tweets_clean['text']]
+
+# Spacy
+import spacy
+nlp = spacy.load("en_core_web_sm")
+
+# Get tokens with Spacy and get rid of punctuation and stopwords
+tweets_clean['tokens'] = tweets_clean['processed'].map(lambda tweet: [token for token in nlp(tweet) if not token.is_stop and not token.is_punct])
+
+# Lemmatize tokens
+tweets_clean['lemmas'] = tweets_clean['tokens'].map(lambda tweet: [token.lemma_ for token in tweet if not token.is_digit and not token.is_currency])
+
+from nltk.tokenize import TweetTokenizer
+tokenizer = TweetTokenizer()
+
+# Column with mentions
+tweets_clean['mentions'] = tweets_clean['text'].map(lambda tweet: [token for token in tokenizer.tokenize(tweet) if token.startswith('@')])
+# Column with hashtags
+tweets_clean['hashtags'] = tweets_clean['text'].map(lambda tweet: [token for token in tokenizer.tokenize(tweet) if token.startswith('#')])
+
+# Identify bigrams
+from nltk import bigrams
+import itertools
+
+# Make list of bigrams
+bigram = [list(bigrams(tweet)) for tweet in tweets_clean['tokens']]
+tweet_bigrams = itertools.chain(*bigram)
+
+import re
+from nltk.tokenize.treebank import TreebankWordDetokenizer as Detok
+detokenizer = Detok()
+
+tweets_clean['tidy_tweet'] = tweets_clean['lemmas'].apply(lambda x: detokenizer.detokenize(x))
+
+#Für Lemmas
+tweets_clean['tidy_tweet'] = tweets_clean['tidy_tweet'].apply(lambda x: ' '.join([w for w in x.split() if len(w)>3]))
+
+#Re-arrange columns
+tweets_clean = tweets_clean[['id', 'date', 'user_screen_name', 'text', 'processed', 'tokens', 'lemmas', 'tidy_tweet', 'mentions', 'hashtags', 'user_followers_count']]
+
+tweets_clean.head()
+
+# Import Covid data
+
+#Load COVID-data
+id = "1ZBZFqcOkhWMJQRnGFTiNzbToZKERSJ45"
+
+downloaded = drive.CreateFile({'id':id})
+downloaded.GetContentFile('us.csv')
+us_covid = pd.read_csv('us.csv')
+
+#Set date column from object type to datetime format
+us_covid['date'] = pd.to_datetime(us_covid['date'])
+
+us_covid.dtypes
+
+us_covid
+
+us_covid.shape
+
+# Check for missing values
+us_covid.isna().sum()
+
+# Plot cases and deaths over time
+import matplotlib.pyplot as plt
+
+plt.plot('date', 'cases', data=us_covid)
+plt.plot('date', 'deaths', data=us_covid, linestyle='dashed')
+plt.legend()
+
+# Determine Sentiments
+
+# Textblob
+
+# Define function to get polarity
+from textblob import TextBlob
+def getPolarity(text):
+   return  TextBlob(text).sentiment.polarity
+
+   # Create new column for polarity in tweets_clean
+tweets_clean['polarity_textblob'] = tweets_clean['tidy_tweet'].apply(getPolarity)
+
+# Define function to get subjectivity
+def getSubjectivity(text):
+   return  TextBlob(text).sentiment.subjectivity
+
+   # Create new column for subjectivity in tweets_clean
+tweets_clean['Subjectivity'] = tweets_clean['tidy_tweet'].apply(getSubjectivity)
+
+tweets_clean.head()
+
+# NLTK/VADER
+
+import nltk
+nltk.download('vader_lexicon')
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+import unicodedata
+sentiment_analyzer = SentimentIntensityAnalyzer()
+
+# Create new column for each single and compound sentiment in tweets_clean
+tweets_clean['polarity_vader'] = tweets_clean['tidy_tweet'].apply(lambda x: sentiment_analyzer.polarity_scores(x)['compound'])
+tweets_clean['negative_vader'] = tweets_clean['tidy_tweet'].apply(lambda x: sentiment_analyzer.polarity_scores(x)['neg'])
+tweets_clean['neutral_vader'] = tweets_clean['tidy_tweet'].apply(lambda x: sentiment_analyzer.polarity_scores(x)['neu'])
+tweets_clean['positive_vader'] = tweets_clean['tidy_tweet'].apply(lambda x: sentiment_analyzer.polarity_scores(x)['pos'])
+
+tweets_clean.head()
+
+# Create a function to turn polarity in -1/0/1 = positive/neutral/negative
+def getAnalysis(score):
+  if score < 0:
+      return 'Negative'
+  elif score == 0:
+      return 'Neutral'
+  else:
+      return 'Positive'
+
+tweets_clean['Sentiment'] = tweets_clean['polarity_vader'].apply(getAnalysis)
+
+# Visualization of Sentiments
+
+# Plot polarity against subjectivity
+tweets_clean.plot('polarity_textblob', 'Subjectivity', style=['bo'], ylabel='Subjectivity', legend=False)
+
+# I checked for the Top 10 most used words to get a feeling what the wordclouds will
+#be about. We can see that "Coronavirus" belongs to every sentiment (positive/neutral/negative),
+#as well as "Trump" and "China". The tweets are mostly in the "neutral" segment with about 60%.
+
+import itertools
+from collections import Counter
+
+Counter(" ".join(tweets_clean['tidy_tweet']).split()).most_common(10)
+
+# Show ten most common bigrams
+counted_bigrams = Counter(tweet_bigrams)
+counted_bigrams.most_common()[:10]
+
+# Count most common hashtags
+count_hashtags = itertools.chain(*tweets_clean['hashtags'])
+counted_hashtags = Counter(count_hashtags)
+counted_hashtags.most_common()[:10]
+
+# Count most common mentions
+count_mentions = itertools.chain(*tweets_clean['mentions'])
+counted_mentions = Counter(count_mentions)
+counted_mentions.most_common()[:10]
+
+from os import path
+from PIL import Image
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+
+from wordcloud import WordCloud, STOPWORDS
+
+stopwords = set(STOPWORDS)
+stopwords.add("coronavirus")
+stopwords.add("coronaviru")
+stopwords.add("covid")
+stopwords.add("know")
+
+# Read text
+pos_words =' '.join([text for text in tweets_clean['tidy_tweet'][tweets_clean['Sentiment'] == 'Positive']])
+normal_words =' '.join([text for text in tweets_clean['tidy_tweet'][tweets_clean['Sentiment'] == 'Neutral']])
+neg_words =' '.join([text for text in tweets_clean['tidy_tweet'][tweets_clean['Sentiment'] == 'Negative']])
+
+# read the mask image
+
+id = "1yGu5_PSX_peTamwHvp8AnCoJ4U3pVry9"
+
+downloaded = drive.CreateFile({'id':id})
+downloaded.GetContentFile('happy.jpg')
+happy = np.array(Image.open('happy.jpg'))
+
+id = "1fJD45SUguAsiKNXfqzkGbzxVWmAWCVH6"
+
+downloaded = drive.CreateFile({'id':id})
+downloaded.GetContentFile('neutral.jpg')
+neutral = np.array(Image.open('neutral.jpg'))
+
+id = "1GVhjI4WsmOO_ZHHREgyc3vUpAzQVxSbK"
+
+downloaded = drive.CreateFile({'id':id})
+downloaded.GetContentFile('negative.jpg')
+negative = np.array(Image.open('negative.jpg'))
+
+# show positive sentiment
+wc = WordCloud(width=1700, height=1000, background_color="white", max_words=2000, mask=happy, contour_width=1, contour_color='black', stopwords=stopwords)
+wc.generate(pos_words)
+plt.figure(figsize=(18,9))
+plt.imshow(wc, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+
+# show neutral sentiment
+wc = WordCloud(width=1700, height=1000, background_color="white", max_words=2000, mask=neutral, contour_width=1, contour_color='black', stopwords=stopwords)
+wc.generate(normal_words)
+plt.figure(figsize=(18,9))
+plt.imshow(wc, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+
+# show negative sentiment
+wc = WordCloud(width=1700, height=1000, background_color="white", max_words=2000, mask=negative, contour_width=1, contour_color='black', stopwords=stopwords)
+wc.generate(neg_words)
+plt.figure(figsize=(18,9))
+plt.imshow(wc, interpolation='bilinear')
+plt.axis("off")
+plt.show()
+
+#How is the percentage of positive/neutral/negative tweets?
+ptweets = tweets_clean[tweets_clean.Sentiment == 'Positive']
+ntweets = tweets_clean[tweets_clean.Sentiment == 'Neutral']
+btweets = tweets_clean[tweets_clean.Sentiment == 'Negative']
+print('Positive:',round((ptweets.shape[0] / tweets_clean.shape[0]) * 100 , 1))
+print('Neutral:',round((ntweets.shape[0] / tweets_clean.shape[0]) * 100 , 1))
+print('Negative:',round((btweets.shape[0] / tweets_clean.shape[0]) * 100 , 1))
+
+# LDA
+
+!pip install -qq -U gensim
+
+pip install pyldavis
+
+# Import the dictionary builder
+from gensim.corpora.dictionary import Dictionary
+from gensim.models import LdaMulticore
+import pyLDAvis.gensim
+import gensim
+
+dictionary = Dictionary(tweets_clean['lemmas'])
+
+# filter out low-frequency / high-frequency stuff, also limit the vocabulary to max 1000 words
+dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=1000)
+
+# construct corpus using this dictionary
+corpus = [dictionary.doc2bow(doc) for doc in tweets_clean['lemmas']]
+
+# Training the model
+lda_model = LdaMulticore(corpus, id2word=dictionary, num_topics=10, workers = 4, passes=10)
+
+# Check out topics
+lda_model.print_topics(-1)
+
+lda_display = pyLDAvis.gensim.prepare(lda_model, corpus, dictionary)
+pyLDAvis.display(lda_display)
+
+# Sentiment analysis over time
+
+#Make a dataframe with Date / Tweet / Tokens / Polarity and group them by date
+#in order to get a polarity by day.
+
+import matplotlib.dates as mdates
+
+tweets_clean.columns
+
+# Make df
+analysis = tweets_clean[['id','date', 'tidy_tweet', 'lemmas', 'polarity_textblob', 'Sentiment', 'Subjectivity', 'user_followers_count', 'polarity_vader']]
+
+# Indicative polarity distribution of tweets
+analysis.Sentiment.value_counts()
+
+# Subjectivity
+subjectivity = analysis.groupby('date')['Subjectivity'].mean()
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(subjectivity)
+plt.title('Subjectivity mean per day')
+plt.xlabel('Date')
+plt.ylabel('Subjectivity')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# Polarity sum
+polar_sum = analysis.groupby('date')['polarity_textblob'].aggregate(sum)
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(polar_sum)
+plt.title('Polarity sum')
+plt.xlabel('Date')
+plt.ylabel('Sum Polarity')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# Polarity mean textblob
+
+polar_mean = analysis.groupby('date')['polarity_textblob'].mean()
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(polar_mean)
+plt.title('Polarity mean per day (TextBlob)')
+plt.xlabel('Date')
+plt.ylabel('Mean Polarity')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# Polarity mean vader
+
+polar_mean = analysis.groupby('date')['polarity_vader'].mean()
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(polar_mean)
+plt.title('Polarity mean per day (Vader)')
+plt.xlabel('Date')
+plt.ylabel('Mean Polarity')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# Linkage between twitter sentiment and stock prices
+
+# Since the coronavirus as a global pandemic affects almost every industry equally
+#(see data exploration at the beginning) and the twitter data we gathered is focused
+#on the coronavirus topic rather than individual companies/stocks, our model focuses
+#on the link between the sentiment of coronavirus tweets and the S&P500 index development -
+#rather than checking for the correlation with each individual stock.
+
+# Download index data from Yahoo Finance
+sandp500 = yf.download('^GSPC', start='2020-01-01', end='2020-03-23')['Adj Close']
+
+# We set the index to lowercase
+sandp500.index.name = 'date'
+
+# Check development via visualization as a line chart
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(sandp500)
+plt.title('S&P500')
+plt.xlabel('Date')
+plt.ylabel('Adj Close')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# Save downloaded data in pandas
+sandp500 = pd.DataFrame(sandp500)
+sandp500.head()
+
+# Add missing dates, i.e. weekends
+idx = pd.date_range('01-01-2020', '03-24-2020')
+
+sandp500.index = pd.DatetimeIndex(sandp500.index)
+
+sandp500 = sandp500.reindex(idx, fill_value=0)
+
+# Intrapolate data for the weekends using linear interpolation
+sandp500 = sandp500.resample('D').mean()
+sandp500.replace(0, np.nan, inplace=True)
+sandp500['Adj Close'] = sandp500['Adj Close'].interpolate()
+sandp500.head()
+
+# Calculate daily returns
+sandp500_returns = sandp500.apply(np.log).diff(1)
+sandp500_returns.rename(columns={'Adj Close': 'S&P500_daily_return'}, inplace=True)
+sandp500_returns.head()
+
+# Weight polarity score by number of followers
+tweets_clean['polarity_weighted'] = tweets_clean['polarity_vader']
+tweets_clean['polarity_weighted'] = np.where(tweets_clean['user_followers_count'] != 0,
+                                           tweets_clean['polarity_vader'] * (tweets_clean['user_followers_count'] + 1),
+                                           tweets_clean['polarity_weighted'])
+
+tweets_clean.columns
+
+# Sort Tweets by date and aggregate the sentiment for each date
+tweets_sentiment = tweets_clean.drop(['id', 'user_screen_name', 'text', 'processed', 'tokens',
+       'lemmas', 'tidy_tweet', 'mentions', 'hashtags', 'user_followers_count',
+       'Sentiment'], axis=1) #, 'negative_vader', 'neutral_vader', 'positive_vader'
+tweets_sentiment = tweets_sentiment.groupby('date').mean()
+tweets_sentiment['tweet_count'] = tweets_clean.groupby('date')['polarity_weighted'].count()
+tweets_sentiment.head()
+
+# Merge dataframes with sentiment score and daily returns on date
+# Use inner join to include all data possible, even if extrapolated but only for Jan to April 2020
+stocks_sentiment = sandp500_returns.merge(tweets_sentiment, left_index=True, right_index=True, how='inner')
+stocks_sentiment.head()
+
+# Merge dataframes with daily prices on date
+# Use inner join to include all data possible, even if extrapolated
+stocks_sentiment = sandp500.merge(stocks_sentiment, left_index=True, right_index=True, how='inner')
+stocks_sentiment = stocks_sentiment.rename(columns = {'Adj Close':'S&P500_adj_close'})
+stocks_sentiment.head()
+
+us_covid.set_index('date', inplace=True)
+us_covid.head()
+
+print(us_covid.isna().sum().sum())
+
+# Merge dataframes with sentiment score and daily returns with the one with the cases and deaths on date
+# Use left join to include also the period from the beginning of the year when the US didn't have cases yet
+
+stocks_sentiment_cases = stocks_sentiment.merge(us_covid, left_index=True, right_index=True, how='left')
+
+# Fill NaN values with 0
+
+stocks_sentiment_cases['cases'] = stocks_sentiment_cases['cases'].fillna(0)
+stocks_sentiment_cases['deaths'] = stocks_sentiment_cases['deaths'].fillna(0)
+
+# Include class for the daily return
+stocks_sentiment_cases['return_class'] = 'tbd'
+for i in range(len(stocks_sentiment_cases)):
+  if stocks_sentiment_cases['S&P500_daily_return'][i] > 0:
+    stocks_sentiment_cases['return_class'][i] = 'positive'
+  elif stocks_sentiment_cases['S&P500_daily_return'][i] < 0:
+    stocks_sentiment_cases['return_class'][i] = 'negative'
+  else: stocks_sentiment_cases['return_class'][i] = 'neutral'
+
+  # Drop rows with Nan values
+print(len(stocks_sentiment_cases))
+stocks_sentiment_cases = stocks_sentiment_cases.dropna()
+print(len(stocks_sentiment_cases))
+stocks_sentiment_cases.head()
+
+# Drop the one neutral return row to avoid having a multiclass problem
+print(stocks_sentiment_cases['return_class'].value_counts())
+stocks_sentiment_cases = stocks_sentiment_cases[stocks_sentiment_cases.return_class != 'neutral']
+print(stocks_sentiment_cases['return_class'].value_counts())
+
+# Some data exploration
+
+# Cases
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(stocks_sentiment_cases.cases)
+plt.title('Covid cases in the US')
+plt.xlabel('Date')
+plt.ylabel('Cases')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# Deaths
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(stocks_sentiment_cases.deaths)
+plt.title('Covid deaths in the US')
+plt.xlabel('Date')
+plt.ylabel('Deaths')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# Tweet count
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(stocks_sentiment_cases.tweet_count[:-1])
+plt.title('Number of tweets per day')
+plt.xlabel('Date')
+plt.ylabel('Tweet count')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# Sentiments and returns
+
+locator = mdates.DayLocator(bymonthday=[1, 15])
+formatter = mdates.DateFormatter('%b %d')
+
+fig, ax = plt.subplots(figsize=(10, 7), tight_layout=True)
+ax.xaxis.set_major_locator(locator)
+ax.xaxis.set_major_formatter(formatter)
+
+plt.plot(stocks_sentiment_cases["S&P500_daily_return"], label = 'Daily return')
+plt.plot(stocks_sentiment_cases["polarity_vader"], label = 'Polarity Vader')
+plt.plot(stocks_sentiment_cases["polarity_textblob"], label = 'Polarity TextBlob')
+plt.title('Sentiments and returns')
+plt.xlabel('Date')
+plt.ylabel('%')
+ax.tick_params(axis='x', rotation=70)
+plt.show()
+
+# load packages for correlation analysis
+from scipy.stats import pearsonr
+from scipy.stats import spearmanr
+
+# Correlation between subjectivity and polarity from textblob
+spearman = spearmanr(stocks_sentiment_cases.Subjectivity, stocks_sentiment_cases.polarity_textblob)
+print(f'Spearmans correlation: {spearman}')
+
+pearson = pearsonr(stocks_sentiment_cases.Subjectivity, stocks_sentiment_cases.polarity_textblob)
+print(f'Pearsons correlation: {pearson}')
+
+# Correlation between Vader Polarity and returns
+spearman = spearmanr(stocks_sentiment_cases['S&P500_daily_return'], stocks_sentiment_cases['polarity_vader'])
+print(f'Spearmans correlation: {spearman}')
+
+pearson = pearsonr(stocks_sentiment_cases['S&P500_daily_return'], stocks_sentiment_cases['polarity_vader'])
+print(f'Pearsons correlation: {pearson}')
+
+# Surprisingly, a negative correlation is found
+
+# Standardize data to avoid influences of the different scales
+
+stocks_sentiment_cases.columns
+
+# Create column with S&P500 data lagged by 1 day
+stocks_sentiment_cases['S&P500_daily_return_lag_1'] = stocks_sentiment_cases['S&P500_daily_return'].shift(-1)
+stocks_sentiment_cases['return_class_lag_1'] = stocks_sentiment_cases['return_class'].shift(-1)
+
+# Drop resulting columns with NaN values
+print(len(stocks_sentiment_cases))
+stocks_sentiment_cases = stocks_sentiment_cases.dropna()
+print(len(stocks_sentiment_cases))
+
+# Show dataframe
+stocks_sentiment_cases.head()
+
+#Re-arrange columns
+stocks_sentiment_cases = stocks_sentiment_cases[['S&P500_adj_close', 'S&P500_daily_return', 'S&P500_daily_return_lag_1', 'polarity_weighted', 'tweet_count', 'cases', 'deaths', 'polarity_vader', 'negative_vader',
+       'neutral_vader', 'positive_vader', 'polarity_textblob', 'Subjectivity', 'return_class', 'return_class_lag_1']]
+
+       # Plot the daily return and the daily sentiment
+stocks_sentiment_cases.plot(y=["S&P500_daily_return_lag_1", "polarity_vader", "polarity_textblob"], kind="line")
+
+# standardize data to ensure their scale doesn't affect the analysis
+from sklearn.preprocessing import StandardScaler
+scaled_data = StandardScaler().fit_transform(stocks_sentiment_cases.loc[:,'S&P500_adj_close':'Subjectivity'])
+scaled_data_df = pd.DataFrame(scaled_data)
+scaled_data_df.columns = stocks_sentiment_cases.loc[:,'S&P500_adj_close':'Subjectivity'].columns
+
+scaled_data_df.head()
+
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder
+
+from sklearn.model_selection import GridSearchCV
+from sklearn.model_selection import RepeatedStratifiedKFold
+
+import statsmodels.api as sm
+from sklearn.svm import SVR
+from sklearn.metrics import r2_score,mean_squared_error
+
+from sklearn.model_selection import cross_val_score
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+
+from sklearn.metrics import confusion_matrix
+from sklearn.metrics import classification_report
+from mlxtend.plotting import plot_confusion_matrix
+
+# Not ime lag
+
+# Prediction of daily index return
+
+# Simple linear regression
+
+X_lg = stocks_sentiment_cases[['tweet_count', 'polarity_vader', 'negative_vader', 'neutral_vader', 'positive_vader', 'cases', 'deaths']]
+y_lg = stocks_sentiment_cases['S&P500_daily_return']
+
+mod = sm.OLS(y_lg, X_lg)
+res = mod.fit()
+
+print(res.summary2())
+
+# Save regression output
+plt.rc('figure', figsize=(12, 7))
+plt.text(0.01, 0.05, str(res.summary2()), {'fontsize': 10}, fontproperties = 'monospace')
+plt.axis('off')
+plt.tight_layout()
+plt.savefig('OLS1.png')
+
+# Lean OLS
+
+X_lg = stocks_sentiment_cases[['polarity_vader',
+       'tweet_count', 'cases', 'deaths']]
+y_lg = stocks_sentiment_cases['S&P500_daily_return']
+
+mod = sm.OLS(y_lg, X_lg)
+res = mod.fit()
+
+print(res.summary2())
+
+# Save regression output
+plt.rc('figure', figsize=(12, 7))
+plt.text(0.01, 0.05, str(res.summary2()), {'fontsize': 10}, fontproperties = 'monospace')
+plt.axis('off')
+plt.tight_layout()
+plt.savefig('OLS2.png')
+
+# SVM
+
+# split data into train and test samples
+
+X = scaled_data_df.loc[:,['tweet_count', 'polarity_vader', 'negative_vader', 'neutral_vader', 'positive_vader', 'cases', 'deaths']]
+y = stocks_sentiment_cases['S&P500_daily_return']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state = 21)
+
+# tune models via cross-validation
+
+# set ranges for parameter tuning
+sample_one = [2 ** i for i in range(-5, 5)]
+sample_two = [10 ** i for i in range(-5, 5)]
+
+# define parameters to be tuned
+parameter_svr_linear = {'C': sample_one, 'kernel': ['linear'], 'epsilon': sample_one}
+parameter_svr_rbf = {'C': sample_one, 'gamma': sample_two, 'kernel': ['rbf'], 'epsilon': sample_one}
+
+# define models
+model_svr_linear = GridSearchCV(SVR(), parameter_svr_linear, refit = True, n_jobs = -1)
+model_svr_rbf = GridSearchCV(SVR(), parameter_svr_rbf, refit = True, n_jobs = -1)
+
+# fit the models on the training set and tune models via Grid Search Cross Validation
+model_svr_linear.fit(X_train, y_train)
+print('Linear SVR fitted.')
+model_svr_rbf.fit(X_train, y_train)
+print('RBF SVR fitted.')
+
+# check scores of fitted models = R squared
+print(model_svr_linear.score(X_test,y_test))
+print(model_svr_rbf.score(X_test,y_test))
+
+# Same thing: use the predictions from below
+#print(r2_score(y_test,y_pred_svr_linear))
+#print(r2_score(y_test,y_pred_svr_rbf))
+
+# predict in the test data
+y_pred_svr_linear = model_svr_linear.predict(X_test)
+y_pred_svr_rbf = model_svr_rbf.predict(X_test)
+
+# Calculate Root Mean Squared Error
+
+rmse_svr_linear = np.sqrt(mean_squared_error(y_test, y_pred_svr_linear))
+rmse_svr_rbf = np.sqrt(mean_squared_error(y_test, y_pred_svr_rbf))
+
+print(rmse_svr_linear)
+print(rmse_svr_rbf)
+
+# Deep Learning Model
+
+# load packages
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasRegressor
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import KFold
+
+X.shape
+
+# define base model
+def baseline_model():
+	# create model
+	model = Sequential()
+	model.add(Dense(8, input_dim=7, kernel_initializer='normal', activation='relu'))
+	model.add(Dense(1, kernel_initializer='normal'))
+	# Compile model
+	model.compile(loss='mean_squared_error', optimizer='adam')
+	return model
+# evaluate model
+estimator = KerasRegressor(build_fn=baseline_model, epochs=100, batch_size=5, verbose=0)
+kfold = KFold(n_splits=10)
+results = cross_val_score(estimator, X, y, cv=kfold)
+print("Baseline: %.2f (%.2f) MSE" % (results.mean(), results.std()))
+
+# Prediction of index movement (positive or negative return)
+
+scaled_data_df.columns
+
+# split data into train and test samples
+
+X = scaled_data_df.loc[:,['tweet_count', 'polarity_vader', 'negative_vader', 'neutral_vader', 'positive_vader', 'cases', 'deaths']]
+y = stocks_sentiment_cases['return_class']
+labelencoder_y = LabelEncoder()
+y = labelencoder_y.fit_transform(y)
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state = 21)
+
+# Standard classification models
+
+# We exclude Random Forest for performance reasons.
+
+# define the prediction models before parameter tuning
+model_lrs = LogisticRegression()
+#model_rf = RandomForestRegressor()
+model_knn = KNeighborsClassifier()
+model_svm_linear = SVC(kernel='linear')
+model_svm_rbf = SVC(kernel='rbf')
+
+# tune models via cross-validation
+
+cv = RepeatedStratifiedKFold(n_splits=10, n_repeats=5, random_state=42)
+
+# set ranges for parameter tuning
+sample_one = [2 ** i for i in range(-5, 5)]
+sample_two = [10 ** i for i in range(-5, 5)]
+
+# define parameters to be tuned
+parameter_lrs = {'C': sample_one, 'class_weight': [None, 'balanced']}
+#parameter_rf = {'bootstrap': [True, False], 'max_depth': [5, 8, 15, None], 'min_samples_leaf': [1, 2, 4], 'min_samples_split': [2, 5, 10], 'n_estimators' : [100, 300, 500]}
+parameter_knn = {'metric': ['euclidean','manhattan'], 'n_neighbors': list(np.arange(1, 20))}
+parameter_svm_linear = {'C': sample_one, 'kernel': ['linear']}
+parameter_svm_rbf = {'C': sample_one, 'gamma': sample_two, 'kernel': ['rbf']}
+
+# define models
+model_lrs = GridSearchCV(LogisticRegression(), parameter_lrs, refit = True, n_jobs = -1)
+#model_rf = GridSearchCV(RandomForestRegressor(), parameter_rf, refit = True, n_jobs = -1)
+model_knn = GridSearchCV(KNeighborsClassifier(), parameter_knn, refit = True, n_jobs = -1)
+model_svm_linear = GridSearchCV(SVC(), parameter_svm_linear, refit = True, n_jobs = -1)
+model_svm_rbf = GridSearchCV(SVC(), parameter_svm_rbf, refit = True, n_jobs = -1)
+
+# fit the models on the training set and tune models via Grid Search Cross Validation
+model_lrs.fit(X_train, y_train)
+print('Logistic regression fitted.')
+
+#model_rf.fit(X_train, y_train)
+#print('Random Forest fitted.')
+
+model_knn.fit(X_train, y_train)
+print('k-Nearest Neighbours fitted.')
+
+model_svm_linear.fit(X_train, y_train)
+print('Linear SVC fitted.')
+
+model_svm_rbf.fit(X_train, y_train)
+print('RBF SVC fitted.')
+
+# check scores of fitted models
+print(model_lrs.score(X_test,y_test))
+#print(model_rf.score(X_test,y_test))
+print(model_knn.score(X_test,y_test))
+print(model_svm_linear.score(X_test,y_test))
+print(model_svm_rbf.score(X_test,y_test))
+
+# apply models to cross-validated train_test splits rather than just one split
+model_lrs_cv = cross_val_score(model_lrs, X, y, cv=cv, n_jobs=-1)
+print('model_lrs_cv done')
+model_knn_cv = cross_val_score(model_knn, X, y, cv=cv, n_jobs=-1)
+print('model_knn done')
+model_svm_linear_cv = cross_val_score(model_svm_linear, X, y, cv=cv, n_jobs=-1)
+print('model_svm_linear done')
+model_svm_rbf_cv = cross_val_score(model_svm_rbf, X, y, cv=cv, n_jobs=-1)
+print('model_svm_rbf done')
+
+# save output as list of arrays
+cv_results = [model_lrs_cv, model_knn_cv, model_svm_linear_cv, model_svm_rbf_cv]
+
+# Save output in a dataframe
+
+# Create empty df
+columns = ['Mean score', 'Standard deviation']
+index = ['lrs', 'knn', 'svc linear', 'svc rbf']
+clf_results = pd.DataFrame(index=index, columns=columns)
+
+# Fill with cross-validation results
+for i in range(len(cv_results)):
+  clf_results['Mean score'][i] = cv_results[i].mean()
+  clf_results['Standard deviation'][i] = cv_results[i].std()
+
+print('Classification results with no time lag')
+clf_results
+
+# predict the class in the test data for one given train_test split
+y_pred_lrs = model_lrs.predict(X_test)
+#y_pred_rf = model_rf.predict(X_test)
+y_pred_knn = model_knn.predict(X_test)
+y_pred_svm_linear = model_svm_linear.predict(X_test)
+y_pred_svm_rbf = model_svm_rbf.predict(X_test)
+
+# create confusion matrices
+cm_lrs = confusion_matrix(y_test, y_pred_lrs)
+#cm_rf = confusion_matrix(y_test, y_pred_rf)
+cm_knn = confusion_matrix(y_test, y_pred_knn)
+cm_svm_linear = confusion_matrix(y_test, y_pred_svm_linear)
+cm_svm_rbf = confusion_matrix(y_test, y_pred_svm_rbf)
+
+# define lists
+cm_results = {'result': [cm_lrs, cm_knn, cm_svm_linear, cm_svm_rbf],
+              'title': ['cm_lrs', 'cm_knn', 'cm_svm_linear', 'cm_svm_rbf']}
+
+# plot confusion matrices
+for i in range(len(cm_results['result'])):
+  fig, ax = plot_confusion_matrix(conf_mat=cm_results['result'][i],
+                                show_absolute=True,
+                                show_normed=True)
+  plt.title(cm_results['title'][i])
+  plt.show()
+
+  # print classification reports
+print('lrs')
+print(classification_report(y_test ,y_pred_lrs))
+#print('rf')
+#print(classification_report(y_test ,y_pred_rf))
+print('knn')
+print(classification_report(y_test ,y_pred_knn))
+print('svm linear')
+print(classification_report(y_test ,y_pred_svm_linear))
+print('svm rbf')
+print(classification_report(y_test ,y_pred_svm_rbf))
+
+# Deep learning classification model
+
+# Load packages
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.wrappers.scikit_learn import KerasClassifier
+from keras.utils import np_utils
+
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import KFold
+
+from sklearn.pipeline import Pipeline
+
+import matplotlib.pyplot as plt
+import seaborn as sns
+sns.set()
+
+# convert integers to dummy variables
+dummy_y = np_utils.to_categorical(y)
+
+dummy_y_train = np_utils.to_categorical(y_train)
+dummy_y_test = np_utils.to_categorical(y_test)
+
+print(X.shape)
+print(dummy_y.shape)
+
+# define baseline simple Neural Net model
+def baseline_model():
+	# create model
+	model = Sequential()
+	model.add(Dense(8,activation='relu',input_shape = (7,)))
+	model.add(Dense(2,activation='softmax'))
+	# Compile model
+	model.compile(optimizer = 'adam', loss='categorical_crossentropy', metrics=['accuracy'])
+	return model
+
+  estimator = KerasClassifier(build_fn=baseline_model, epochs=20, batch_size=5, verbose=0)
+
+  # Train the model and generate a "history" object with training logs
+history = estimator.fit(X_train,
+                    dummy_y_train,
+                    epochs = 20,
+                    batch_size = 5,
+                    verbose=0, validation_split=0.1)
+
+                    # summarize history for accuracy
+                    plt.plot(history.history['accuracy'])
+                    plt.plot(history.history['val_accuracy'])
+                    plt.title('model accuracy with no time lag')
+                    plt.ylabel('accuracy')
+                    plt.xlabel('epoch')
+                    plt.legend(['train', 'test'], loc='upper left')
+                    plt.show()
+
+estimator.score(X_test, dummy_y_test)
+
+# use cross-validation again
+results = cross_val_score(estimator, X, dummy_y, cv=10, n_jobs=-1)
+print(f"Baseline: {results.mean()} ({results.std()})")
+
+# Vice-Versa for timelag of 1 day
