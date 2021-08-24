@@ -14,7 +14,7 @@ In this project we’re working with three datasets:
 
 Our plan of attack looked as follows:
 
-![PlanofAttack image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/Flowchart.JPG)
+![PlanofAttack image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/PlanofAttack.JPG)
 
 ### Data preprocessing
 We have decided to analyse Q1 of 2020 to visualize the first economic drop due to COVID-19.
