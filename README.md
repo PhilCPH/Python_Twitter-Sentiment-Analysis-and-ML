@@ -8,12 +8,11 @@ Our problem statement was:
 > Can COVID-19 related sentiments, measured via Twitter, in combination with actual case and death counts predict current and future stock market development in the US?
 
 In this project we’re working with three datasets: 
-- COVID-19 cases in the US
-- a Twitter dataset based on COVID-19 related keywords
-- S&P 500 data
+- COVID-19 cases in the US (https://github.com/nytimes/covid-19-data)
+- a Twitter dataset based on COVID-19 related keywords (https://zenodo.org/record/3723940#.X6xa7y2X-34)
+- S&P 500 data (Yahoo Finance)
 
-Sources:
-Twitter data: https://zenodo.org/record/3723940#.X6xa7y2X-34
-Covid data: https://github.com/nytimes/covid-19-data
-Stock data: Yahoo Finance
+Our plan of attack looked as follows
+![PlanofAttack image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/Flowchart.JPG)
+
 
