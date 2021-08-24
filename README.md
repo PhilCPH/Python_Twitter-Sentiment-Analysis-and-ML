@@ -3,8 +3,9 @@
     <meta charset="utf-8">
     </head>
     <body>
-     <h1>From informal to formal: Using Twitter Sentiments to predict stock prices</h1>
-     <h2>Philipp, Merle, Kevin</h2>
+     <h1>Social Data Science Semester - Group Assignment</h1>
+      <h2>From informal to formal: Using Twitter Sentiments to predict stock prices</h2>
+     <p>Philipp, Merle, Kevin</p>
      <p>15.11.2020</p>
      <p>In this project we have chosen to predict stock development based on a Twitter sentiment analysis which is sourced by COVID-19 related keywords and relate it to COVID-19 infections and deaths over the same timeframe.
 
