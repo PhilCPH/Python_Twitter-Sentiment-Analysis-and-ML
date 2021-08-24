@@ -1,7 +1,6 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>SDS CBS 2020 - Group Assignment</title>
     </head>
     <body>
      <h1>From informal to formal: Using Twitter Sentiments to predict stock prices</h1>
