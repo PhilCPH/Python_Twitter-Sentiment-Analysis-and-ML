@@ -23,13 +23,13 @@ The COVID-19 dataset was the easiest to handle, as its only date, cases and deat
 
 The Tweet dataset needed to be hydrated first as in this state it only contains tweet-ids due to Twitter's TOS. Another challenge in this dataset was the size. During the middle of March COVID-19 became a bigger part of the public discussion and thus, the frequency of related tweets increased. In addition to that, the scraper of this dataset switched from 2 to 13 keywords, increasing the size even more. For our sample, the increase can be seen in this graph.
 
-![Nrtweets image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/tweet_increase.JPG)
+![Nrtweets image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/tweet_increase.JPG)
 
 After hydrating, tweets that have been since deleted will result in NaN's. After dropping all missed values, duplicates and tweets not written in English, 43,111 tweets remain.
 
 We've used "Tweet Preprocessor" to remove Twitter-specific parts (e.g. hashtags, mentions) and "Spacy" to identify stop words and punctuation. Spacy then transforms the words into tokens and leematizes them (e.g. running converts to run). Then words with less than 4 characters are removed. By loading NLTK-dictionaries, each tweet can be related to a polarity, depending on how many positive/neutral/negative words were mentioned. This polarity ranges from -1 to +1. The mean polarity over our time frame can be seen in the next figure.
 
-![Polarity image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/polarity.JPG)
+![Polarity image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/MeanPol.JPG)
 
 The financial data uses S&P 500 data for a proxy to the US market. The financial data is interpolated in order to relate Twitter-data to non-trading days as well.
 
@@ -39,7 +39,7 @@ The financial dataset comprises two parts: individidual stock returns and cluste
 
 After pre-processing the tweets, we can plot the polarity of the tweets against the subjectivity.
 
-![Polsub image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/polsub.JPG)
+![Polsub image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/Polarity.JPG)
 
 This results in a funnel-shape, meaning that the more negative/positive a tweet is, the more subjective it becomes (excluding a few outliers).
 
@@ -47,29 +47,29 @@ This results in a funnel-shape, meaning that the more negative/positive a tweet 
 
 Measures to try and cluster the S&P 500 data with PCA/UMAP by industries or return (positive/negative) did not provide satisfying results.
 
-![Cluster1 image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/cluster.JPG)
-![Cluster2 image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/cluster2.JPG)
+![Cluster1 image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/PCA.JPG)
+![Cluster2 image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/UMAP.JPG)
 
 ### LDA
 
 This tool helps us to get a grip of what the data set looks like. Not surprisingly, it showed that "coronavirus" is the most frequent term.
 
-![LDA image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/LDA.JPG)
+![LDA image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/LDA.JPG)
 
 ### WordClouds
 The WordClouds have been used to visualize the most frequent words for each sentiment. As a bonus, we used a mask as an overlay.
 
 Positive Sentiment
 
-![Positive image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/positive.JPG)
+![Positive image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/Positive.png)
 
 Neutral Sentiment
 
-![Neutral image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/neutral.JPG)
+![Neutral image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/Neutral.png)
 
 Negative Sentiment
 
-![Negative image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/negative.JPG)
+![Negative image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/Negative.png)
 
 The positive segment seems to be more related to instill hope and cooperation in the community by mentioning “good”, “right”, “time” and “help”. The neutral keywords have a higher representation of COVID-19 related keywords but also mention the political situation with “trump”, “china”, “pandemic” and “outbreak”. Negative keywords, such as curse words in combination with “crisis”, “china”, “kill” and “trump” seem to be more of an outlet of frustration in this time of crisis.
 
@@ -89,17 +89,17 @@ With that, a correlative as well as a predictive relationship are examined. In o
 
 The exploration of the financials showed that companies in the industry of Gold, Biotech, Wireless Telecommunication Services, and Systems Software made gains during this timeframe. On the other hand, industries such as Airlines and Hotels and Resorts were hit the worst.
 
-![Industries image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/industries.png)
+![Industries image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/industries.JPG)
 
 ### Performance
 
 We used cross validation for the prediction. As the tweets should influence the stock development of tomorrow, we included a prediction with a time lag of one day. The mean scores as well as the standard deviation for 10-fold Repeated Stratified KFold cross-validation are reported in the figure below.
 
-![Classresult image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/classresult.JPG)
+![Classresult image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/classres.JPG)
 
 The model's accuracy is pictured below.
 
-![Accresult image](https://raw.githubusercontent.com/PhilMaroEn/PhilMaroEn.github.io/Seperate/images/accresult.JPG)
+![Accresult image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/accres.JPG)
 
 ### Conclusion
 
