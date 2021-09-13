@@ -1,12 +1,12 @@
-# Social Data Science Semester 2020 - Group Assignment
+# Social Data Science Semester 2020
 ## From informal to formal: Using Twitter Sentiments to predict stock prices
-### Philipp, Merle, Kevin
-In this project we have chosen to predict stock development based on a Twitter sentiment analysis which is sourced by COVID-19 related keywords and relate it to COVID-19 infections and deaths over the same timeframe.
+
+In this project it was chosen to predict stock development based on a Twitter sentiment analysis which is sourced by COVID-19 related keywords and relate it to COVID-19 infections and deaths over the same timeframe.
 
 Our problem statement was:
 > Can COVID-19 related sentiments, measured via Twitter, in combination with actual case and death counts predict current and future stock market development in the US?
 
-In this project we’re working with three datasets: 
+In this project three datasets were used: 
 - COVID-19 cases in the US (https://github.com/nytimes/covid-19-data)
 - a Twitter dataset based on COVID-19 related keywords (https://zenodo.org/record/3723940#.X6xa7y2X-34)
 - S&P 500 data (Yahoo Finance)
@@ -16,7 +16,7 @@ Our plan of attack looked as follows:
 ![PlanofAttack image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/PlanofAttack.JPG)
 
 ### Data preprocessing
-We have decided to analyse Q1 of 2020 to visualize the first economic drop due to COVID-19.
+It was decided to analyse Q1 of 2020 to visualize the first economic drop due to COVID-19.
 
 The COVID-19 dataset was the easiest to handle, as its only date, cases and deaths. The date-category was transferred to a datetime format.
 
@@ -26,7 +26,7 @@ The Tweet dataset needed to be hydrated first as in this state it only contains 
 
 After hydrating, tweets that have been since deleted will result in NaN's. After dropping all missed values, duplicates and tweets not written in English, 43,111 tweets remain.
 
-We've used "Tweet Preprocessor" to remove Twitter-specific parts (e.g. hashtags, mentions) and "Spacy" to identify stop words and punctuation. Spacy then transforms the words into tokens and leematizes them (e.g. running converts to run). Then words with less than 4 characters are removed. By loading NLTK-dictionaries, each tweet can be related to a polarity, depending on how many positive/neutral/negative words were mentioned. This polarity ranges from -1 to +1. The mean polarity over our time frame can be seen in the next figure.
+"Tweet Preprocessor" was used to remove Twitter-specific parts (e.g. hashtags, mentions) and "Spacy" to identify stop words and punctuation. Spacy then transforms the words into tokens and leematizes them (e.g. running converts to run). Then words with less than 4 characters are removed. By loading NLTK-dictionaries, each tweet can be related to a polarity, depending on how many positive/neutral/negative words were mentioned. This polarity ranges from -1 to +1. The mean polarity over our time frame can be seen in the next figure.
 
 ![Polarity image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/MeanPol.JPG)
 
@@ -36,7 +36,7 @@ The financial dataset comprises two parts: individidual stock returns and cluste
 
 ### Results
 
-After pre-processing the tweets, we can plot the polarity of the tweets against the subjectivity.
+After pre-processing the tweets, I can plot the polarity of the tweets against the subjectivity.
 
 ![Polsub image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/Polarity.JPG)
 
@@ -56,7 +56,7 @@ This tool helps us to get a grip of what the data set looks like. Not surprising
 ![LDA image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/LDA.JPG)
 
 ### WordClouds
-The WordClouds have been used to visualize the most frequent words for each sentiment. As a bonus, we used a mask as an overlay.
+The WordClouds have been used to visualize the most frequent words for each sentiment. As a bonus, I used a mask as an overlay.
 
 Positive Sentiment
 
@@ -92,7 +92,7 @@ The exploration of the financials showed that companies in the industry of Gold,
 
 ### Performance
 
-We used cross validation for the prediction. As the tweets should influence the stock development of tomorrow, we included a prediction with a time lag of one day. The mean scores as well as the standard deviation for 10-fold Repeated Stratified KFold cross-validation are reported in the figure below.
+Cross validation was used for the prediction. As the tweets should influence the stock development of tomorrow, I included a prediction with a time lag of one day. The mean scores as well as the standard deviation for 10-fold Repeated Stratified KFold cross-validation are reported in the figure below.
 
 ![Classresult image](https://github.com/PhilCPH/Twitter-Sentiment-Analysis-and-ML/blob/main/images/classres.JPG)
 
